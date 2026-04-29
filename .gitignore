@@ -1,0 +1,42 @@
+```gitignore
+# Xcode
+build/
+DerivedData/
+*.xcworkspace
+!default.xcworkspace
+*.xcuserdata
+*.xcuserstate
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+
+# Swift Package Manager
+.swiftpm/
+Packages/
+
+# CocoaPods (if you ever use it)
+Pods/
+
+# Carthage
+Carthage/Build/
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+
+# Archives
+*.xcarchive
+
+# Temporary files
+*.swp
+*.tmp
+
+# Audio files (OPTIONAL: only ignore if large or private)
+# *.wav
+
+# Environment / secrets
+.env

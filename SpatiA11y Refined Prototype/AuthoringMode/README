@@ -1,0 +1,66 @@
+# SpatiA11y – Spatial Audio Accessibility Prototype
+
+This project explores spatial audio interfaces for accessibility using Apple's PHASE framework. It enables users to navigate and interact with virtual "widgets" through spatialized sound and touch-based exploration.
+
+## Concept
+
+The system maps UI elements (widgets) into a 3D audio space. Users:
+- Drag their finger to explore space
+- Hear spatialized sounds tied to objects
+- Tap to trigger text-to-speech (TTS)
+- Adjust audio properties via a control panel
+
+This builds toward an **"ear-in-hand" interaction paradigm** for non-visual navigation.
+
+---
+
+## Architecture Overview
+
+### Core Systems
+
+- PHASEManager – Handles audio engine setup, listener, and spatial audio pipeline :contentReference[oaicite:0]{index=0}  
+- WidgetAudioGrid – Manages spatial layout of widgets, sound playback, and TTS :contentReference[oaicite:1]{index=1}  
+- SpatialAudioManager – Applies UI settings to audio system :contentReference[oaicite:2]{index=2}  
+- HeadTrackingManager – Tracks head orientation via AirPods motion sensors :contentReference[oaicite:3]{index=3}  
+
+### UI Layers
+
+- InterfaceView – Main exploration interface (drag + tap interactions) :contentReference[oaicite:4]{index=4}  
+- ControlPanelView – Adjust widget/global audio settings :contentReference[oaicite:5]{index=5}  
+- MainContainerView – Switches between interface and control panel :contentReference[oaicite:6]{index=6}  
+
+### Data + Config
+
+- AudioAssetLibrary – Available sounds categorized (nature, pads, etc.) :contentReference[oaicite:7]{index=7}  
+- WidgetAudioSettings / GlobalAudioSettings** – State models for audio parameters :contentReference[oaicite:8]{index=8} :contentReference[oaicite:9]{index=9}  
+
+---
+
+## Features
+
+- Spatialized looping audio per widget
+- Touch-based exploration (audio starts/stops on touch)
+- TTS labeling of nearby objects
+- Head tracking support (AirPods)
+- Adjustable:
+  - Volume
+  - Pitch
+  - Spread
+  - Distance gain
+  - Reverb
+- Dynamic sound switching per widget
+
+---
+
+## Getting Started
+
+### Requirements
+- Xcode (latest recommended)
+- iOS device (AirPods recommended for head tracking)
+- iOS 15+
+
+### Setup
+
+1. Clone the repo:
+   ```bash
+   git clone https://github.com/YOUR_REPO.git

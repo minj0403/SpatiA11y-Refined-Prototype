@@ -68,6 +68,13 @@ final class WidgetAudioGrid {
     private let speechSynth = AVSpeechSynthesizer()
     private var explorationTouchIsDown = false
     private var masterGain: Float = 1.0
+    
+    private var dynamicSources: [UUID: PHASESource] = [:]
+    private var dynamicEvents: [UUID: PHASESoundEvent] = [:]
+    private var dynamicWidgets: [UUID: AuthoringWidget] = [:]
+    private var latestCanvasSize: CGSize = .zero
+    
+    private var touchIsDown = false
 
     private struct RuntimeConfig {
         var isEnabled: Bool = true
@@ -115,12 +122,22 @@ final class WidgetAudioGrid {
         listenerPosWorld = room.center
         print("WidgetAudioGrid.start completed — all widgets silent until exploration fingerDown")
     }
-
+    
     func stop() {
-        stopAllEvents()
+        for (_, evt) in events {
+            evt.stopAndInvalidate()
+        }
+
+        for (_, evt) in dynamicEvents {
+            evt.stopAndInvalidate()
+        }
+
+        events.removeAll()
+        dynamicEvents.removeAll()
         sources.removeAll()
-        authoredPositions.removeAll()
-        explorationTouchIsDown = false
+        dynamicSources.removeAll()
+        dynamicWidgets.removeAll()
+        touchIsDown = false
     }
 
     // MARK: - Authoring mode: silent placement
@@ -159,20 +176,34 @@ final class WidgetAudioGrid {
     // MARK: - Exploration mode: sound only plays while exploring
 
     func fingerDown() {
-        guard !explorationTouchIsDown else { return }
-        explorationTouchIsDown = true
+        guard !touchIsDown else { return }
+        touchIsDown = true
+        print("fingerDown")
 
         for widget in WidgetID.allCases {
-            guard authoredPositions[widget] != nil else { continue }
             guard runtimeConfig[widget]?.isEnabled == true else { continue }
             spawnAndStart(widget)
+        }
+
+        for widget in dynamicWidgets.values {
+            spawnAndStartDynamicWidget(widget)
         }
     }
 
     func fingerUp() {
-        guard explorationTouchIsDown else { return }
-        explorationTouchIsDown = false
-        stopAllEvents()
+        guard touchIsDown else { return }
+        touchIsDown = false
+        print("fingerUp")
+
+        for (_, evt) in events {
+            evt.stopAndInvalidate()
+        }
+        events.removeAll()
+
+        for (_, evt) in dynamicEvents {
+            evt.stopAndInvalidate()
+        }
+        dynamicEvents.removeAll()
     }
 
     private func stopAllEvents() {
@@ -356,6 +387,110 @@ final class WidgetAudioGrid {
         utterance.rate = 0.5
         speechSynth.stopSpeaking(at: .immediate)
         speechSynth.speak(utterance)
+    }
+    
+    // additional helpers
+    func addOrUpdateDynamicWidget(_ widget: AuthoringWidget, canvasSize: CGSize) {
+        if canvasSize.width > 0, canvasSize.height > 0 {
+            latestCanvasSize = canvasSize
+        }
+
+        dynamicWidgets[widget.id] = widget
+
+        do {
+            let source: PHASESource
+
+            if let existingSource = dynamicSources[widget.id] {
+                source = existingSource
+            } else {
+                let newSource = PHASESource(engine: engine)
+                try engine.rootObject.addChild(newSource)
+                dynamicSources[widget.id] = newSource
+
+                try registerDynamicAssets(for: widget)
+                source = newSource
+            }
+
+            let worldPosition = worldPositionFromScreenPoint(widget.position, canvasSize: latestCanvasSize)
+            setTransform(source, position: worldPosition)
+
+            if touchIsDown {
+                spawnAndStartDynamicWidget(widget)
+            }
+        } catch {
+            print("Failed to add/update dynamic widget:", error)
+        }
+    }
+    
+    private func dynamicAssetID(for id: UUID) -> String {
+        "dynamic_\(id.uuidString)_asset"
+    }
+
+    private func dynamicEventID(for id: UUID) -> String {
+        "dynamic_\(id.uuidString)_event"
+    }
+
+    private func dynamicMixerID(for id: UUID) -> String {
+        "dynamic_\(id.uuidString)_mixer"
+    }
+
+    private func registerDynamicAssets(for widget: AuthoringWidget) throws {
+        let baseName = widget.sound.fileName.replacingOccurrences(of: ".wav", with: "")
+
+        try registerBundledSoundAsset(
+            name: baseName,
+            ext: "wav",
+            assetID: dynamicAssetID(for: widget.id)
+        )
+
+        try registerLoopingSoundEvent(
+            eventID: dynamicEventID(for: widget.id),
+            soundAssetID: dynamicAssetID(for: widget.id),
+            mixerID: dynamicMixerID(for: widget.id)
+        )
+    }
+
+    private func spawnAndStartDynamicWidget(_ widget: AuthoringWidget) {
+        guard let source = dynamicSources[widget.id] else { return }
+
+        if let old = dynamicEvents[widget.id] {
+            old.stopAndInvalidate()
+            dynamicEvents[widget.id] = nil
+        }
+
+        let params = PHASEMixerParameters()
+        params.addSpatialMixerParameters(
+            identifier: dynamicMixerID(for: widget.id),
+            source: source,
+            listener: listener
+        )
+
+        do {
+            let event = try PHASESoundEvent(
+                engine: engine,
+                assetIdentifier: dynamicEventID(for: widget.id),
+                mixerParameters: params
+            )
+
+            event.start()
+            dynamicEvents[widget.id] = event
+        } catch {
+            print("Failed to start dynamic widget:", error)
+        }
+    }
+
+    private func worldPositionFromScreenPoint(_ point: CGPoint, canvasSize: CGSize) -> SIMD3<Float> {
+        guard canvasSize.width > 0, canvasSize.height > 0 else {
+            return SIMD3<Float>(room.center.x, room.y, room.center.z)
+        }
+
+        let nx = Float((point.x / canvasSize.width) * 2 - 1)
+        let ny = Float((point.y / canvasSize.height) * 2 - 1)
+
+        let x = room.center.x + nx * (room.width * 0.5 - room.inset)
+        let z = room.center.z + ny * (room.depth * 0.5 - room.inset)
+
+        return SIMD3<Float>(x, room.y, z)
     }
 
     // MARK: - Helpers

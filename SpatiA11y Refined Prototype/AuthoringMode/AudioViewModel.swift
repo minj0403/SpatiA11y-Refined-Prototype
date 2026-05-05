@@ -1,40 +1,24 @@
 import Foundation
 import SwiftUI
 import Combine
+import AVFoundation
 
 final class AudioViewModel: ObservableObject {
     @Published var selectedScreen: AppScreen = .authoring
 
-    @Published var widgetSettings: [WidgetID: WidgetAudioSettings] = Dictionary(
-        uniqueKeysWithValues: WidgetID.allCases.map { widget in
-            let defaults = AudioViewModel.defaultSound(for: widget)
-            return (widget, WidgetAudioSettings(
-                pitch: 1.0,
-                volume: 1.0,
-                brightness: 0.5,
-                distanceGain: 1.0,
-                spread: 0.0,
-                isEnabled: true,
-                selectedCategory: defaults.category,
-                selectedSoundName: defaults.displayName
-            ))
-        }
-    )
+    @Published var authoredWidgets: [AuthoringWidget] = []
+    @Published var selectedWidgetID: UUID?
 
     @Published var globalSettings = GlobalAudioSettings()
     @Published var isFingerOnSurface = false
     @Published var isTTSActive = false
 
-    // Authoring state for the visual canvas.
-    @Published var placedWidgetPositions: [WidgetID: CGPoint] = [:]
-    @Published var previewWidget: WidgetID? = nil
-    @Published var previewPosition: CGPoint? = nil
-
-    let maxAuthorableWidgets = 10
-
     let spatialAudioManager = SpatialAudioManager()
     let headTrackingManager = HeadTrackingManager()
     let ttsCoordinator = TTSCoordinator()
+
+    private let speechSynth = AVSpeechSynthesizer()
+    private let maxWidgets = 10
 
     init() {
         ttsCoordinator.onSpeechStateChanged = { [weak self] speaking in
@@ -50,7 +34,65 @@ final class AudioViewModel: ObservableObject {
     }
 
     func applyAllSettings() {
-        spatialAudioManager.apply(widgetSettings: widgetSettings, global: globalSettings)
+        spatialAudioManager.applyDynamicWidgets(authoredWidgets, global: globalSettings)
+    }
+
+    func createWidget(at position: CGPoint, canvasSize: CGSize) -> UUID? {
+        guard authoredWidgets.count < maxWidgets else { return nil }
+
+        let soundIndex = authoredWidgets.count % AudioAssetLibrary.allSounds.count
+        let sound = AudioAssetLibrary.allSounds[soundIndex]
+
+        let widget = AuthoringWidget(
+            id: UUID(),
+            name: "Widget \(authoredWidgets.count + 1)",
+            position: clamped(position, in: canvasSize),
+            sound: sound
+        )
+
+        authoredWidgets.append(widget)
+        selectedWidgetID = widget.id
+
+        PHASEManager.shared.addOrUpdateDynamicWidget(widget, canvasSize: canvasSize)
+
+        return widget.id
+    }
+
+    func renameWidget(id: UUID, name: String) {
+        guard let index = authoredWidgets.firstIndex(where: { $0.id == id }) else { return }
+        authoredWidgets[index].name = name
+        PHASEManager.shared.addOrUpdateDynamicWidget(authoredWidgets[index], canvasSize: .zero)
+    }
+
+    func selectWidget(id: UUID) {
+        selectedWidgetID = id
+    }
+
+    func moveWidget(id: UUID, to position: CGPoint, canvasSize: CGSize) {
+        guard let index = authoredWidgets.firstIndex(where: { $0.id == id }) else { return }
+
+        let newPosition = clamped(position, in: canvasSize)
+        authoredWidgets[index].position = newPosition
+
+        PHASEManager.shared.addOrUpdateDynamicWidget(authoredWidgets[index], canvasSize: canvasSize)
+    }
+
+    func widget(at point: CGPoint, radius: CGFloat) -> AuthoringWidget? {
+        authoredWidgets.first { widget in
+            let dx = widget.position.x - point.x
+            let dy = widget.position.y - point.y
+            return sqrt(dx * dx + dy * dy) <= radius
+        }
+    }
+
+    func speakWidgetName(id: UUID) {
+        guard let widget = authoredWidgets.first(where: { $0.id == id }) else { return }
+
+        let utterance = AVSpeechUtterance(string: widget.name)
+        utterance.rate = 0.5
+
+        speechSynth.stopSpeaking(at: .immediate)
+        speechSynth.speak(utterance)
     }
 
     func updateTouchState(_ touching: Bool) {
@@ -78,48 +120,14 @@ final class AudioViewModel: ObservableObject {
         headTrackingManager.stop()
     }
 
-    // MARK: - Authoring
+    private func clamped(_ point: CGPoint, in size: CGSize) -> CGPoint {
+        guard size.width > 0, size.height > 0 else { return point }
 
-    var nextWidgetToPlace: WidgetID? {
-        WidgetID.allCases.first { placedWidgetPositions[$0] == nil }
-    }
+        let padding: CGFloat = 44
 
-    func beginAuthoringPreview(at point: CGPoint) -> WidgetID? {
-        guard placedWidgetPositions.count < maxAuthorableWidgets,
-              let next = nextWidgetToPlace else {
-            previewWidget = nil
-            previewPosition = nil
-            return nil
-        }
-
-        previewWidget = next
-        previewPosition = point
-        return next
-    }
-
-    func updateAuthoringPreview(to point: CGPoint) {
-        guard previewWidget != nil else { return }
-        previewPosition = point
-    }
-
-    func commitAuthoringPreview(at point: CGPoint) -> WidgetID? {
-        guard let widget = previewWidget else { return nil }
-        placedWidgetPositions[widget] = point
-        previewWidget = nil
-        previewPosition = nil
-        return widget
-    }
-
-    func clearAuthoredLayout() {
-        placedWidgetPositions.removeAll()
-        previewWidget = nil
-        previewPosition = nil
-        PHASEManager.shared.clearAuthoredWidgets()
-    }
-
-    private static func defaultSound(for widget: WidgetID) -> SoundOption {
-        let sounds = AudioAssetLibrary.allSounds
-        let index = (widget.index - 1) % sounds.count
-        return sounds[index]
+        return CGPoint(
+            x: min(max(point.x, padding), size.width - padding),
+            y: min(max(point.y, padding), size.height - padding)
+        )
     }
 }

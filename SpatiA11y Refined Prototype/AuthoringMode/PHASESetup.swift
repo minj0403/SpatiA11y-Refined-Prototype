@@ -17,6 +17,11 @@ final class PHASEManager {
     private var roomOccluders: [PHASEOccluder] = []
 
     private init() {}
+    
+    // updated 
+    func addOrUpdateDynamicWidget(_ widget: AuthoringWidget, canvasSize: CGSize) {
+        widgetGrid?.addOrUpdateDynamicWidget(widget, canvasSize: canvasSize)
+    }
 
     // MARK: - Authoring mode: silent widget placement
 

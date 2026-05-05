@@ -10,9 +10,27 @@
 		259CA0272F97F7B1005613DF /* SpatiA11y Refined Prototype.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "SpatiA11y Refined Prototype.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		254872D32FA9DB5D00C83816 /* Exceptions for "SpatiA11y Refined Prototype" folder in "SpatiA11y Refined Prototype" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				AuthoringMode/AudioSettingsView.swift,
+				"AuthoringMode/ControlConditionView 2.swift",
+				AuthoringMode/ControlPanelView.swift,
+				AuthoringMode/GlobalControlSection.swift,
+				"AuthoringMode/InterfaceView 2.swift",
+				AuthoringMode/TopModeToggle.swift,
+			);
+			target = 259CA0262F97F7B1005613DF /* SpatiA11y Refined Prototype */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		259CA0292F97F7B1005613DF /* SpatiA11y Refined Prototype */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				254872D32FA9DB5D00C83816 /* Exceptions for "SpatiA11y Refined Prototype" folder in "SpatiA11y Refined Prototype" target */,
+			);
 			path = "SpatiA11y Refined Prototype";
 			sourceTree = "<group>";
 		};

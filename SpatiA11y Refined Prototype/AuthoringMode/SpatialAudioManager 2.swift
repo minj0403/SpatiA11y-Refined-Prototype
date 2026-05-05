@@ -1,5 +1,6 @@
 import Foundation
 import simd
+import CoreGraphics
 
 final class SpatialAudioManager {
     private var isSetup = false
@@ -35,6 +36,14 @@ final class SpatialAudioManager {
             PHASEManager.shared.setWidgetDistanceGain(map(widgetID), gain: settings.distanceGain)
             PHASEManager.shared.setWidgetSpread(map(widgetID), spread: settings.spread)
             PHASEManager.shared.setWidgetSound(map(widgetID), soundName: settings.selectedSoundName)
+        }
+    }
+    
+    func applyDynamicWidgets(_ widgets: [AuthoringWidget], global: GlobalAudioSettings) {
+        PHASEManager.shared.setRoomReverb(global.roomReverb)
+
+        for widget in widgets {
+            PHASEManager.shared.addOrUpdateDynamicWidget(widget, canvasSize: .zero)
         }
     }
 

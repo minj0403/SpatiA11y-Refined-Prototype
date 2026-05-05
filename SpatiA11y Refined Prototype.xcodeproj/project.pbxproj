@@ -15,11 +15,9 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				AuthoringMode/AudioSettingsView.swift,
-				"AuthoringMode/ControlConditionView 2.swift",
 				AuthoringMode/ControlPanelView.swift,
 				AuthoringMode/GlobalControlSection.swift,
 				"AuthoringMode/InterfaceView 2.swift",
-				AuthoringMode/TopModeToggle.swift,
 			);
 			target = 259CA0262F97F7B1005613DF /* SpatiA11y Refined Prototype */;
 		};

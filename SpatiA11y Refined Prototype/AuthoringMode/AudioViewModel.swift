@@ -88,8 +88,21 @@ final class AudioViewModel: ObservableObject {
     func speakWidgetName(id: UUID) {
         guard let widget = authoredWidgets.first(where: { $0.id == id }) else { return }
 
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setCategory(
+                .playback,
+                mode: .spokenAudio,
+                options: [.mixWithOthers, .defaultToSpeaker]
+            )
+            try session.setActive(true)
+        } catch {
+            print("speakWidgetName: audio session error \(error)")
+        }
+
         let utterance = AVSpeechUtterance(string: widget.name)
-        utterance.rate = 0.5
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.9
+        utterance.volume = 1
 
         speechSynth.stopSpeaking(at: .immediate)
         speechSynth.speak(utterance)

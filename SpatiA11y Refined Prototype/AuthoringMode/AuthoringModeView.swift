@@ -22,8 +22,15 @@ struct AuthoringModeView: View {
                 ForEach(audioModel.authoredWidgets) { widget in
                     widgetView(widget)
                         .position(widget.position)
+                        .highPriorityGesture(
+                            TapGesture(count: 2)
+                                .onEnded {
+                                    audioModel.selectWidget(id: widget.id)
+                                    audioModel.speakWidgetName(id: widget.id)
+                                }
+                        )
                         .gesture(
-                            DragGesture(minimumDistance: 0)
+                            DragGesture(minimumDistance: tapMoveThreshold)
                                 .onChanged { value in
                                     if draggedWidgetID == nil {
                                         draggedWidgetID = widget.id
@@ -44,12 +51,6 @@ struct AuthoringModeView: View {
                                     PHASEManager.shared.fingerUp()
                                 }
                         )
-                        .onTapGesture(count: 3) {
-                            audioModel.speakWidgetName(id: widget.id)
-                        }
-                        .onTapGesture(count: 2) {
-                            audioModel.selectWidget(id: widget.id)
-                        }
                 }
 
                 VStack {
@@ -57,7 +58,7 @@ struct AuthoringModeView: View {
                         .font(.title2)
                         .bold()
 
-                    Text("Single tap empty space to create. Double tap widget to select. Triple tap to hear name.")
+                    Text("Single tap empty space to create. Double tap a widget to select it and hear its name.")
                         .font(.caption)
                         .multilineTextAlignment(.center)
                         .foregroundStyle(.secondary)
@@ -71,6 +72,7 @@ struct AuthoringModeView: View {
                         .padding(.bottom)
                 }
                 .padding()
+                .allowsHitTesting(false)
             }
             .contentShape(Rectangle())
             .gesture(
@@ -153,7 +155,7 @@ struct AuthoringModeView: View {
             }
         }
         .accessibilityLabel(widget.name)
-        .accessibilityHint("Double tap to select. Triple tap to hear name. Drag to move.")
+        .accessibilityHint("Double tap to select and hear the name. Drag to move.")
     }
 }
 

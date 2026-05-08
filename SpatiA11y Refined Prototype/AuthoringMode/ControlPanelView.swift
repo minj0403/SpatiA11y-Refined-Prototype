@@ -40,7 +40,7 @@ struct ControlPanelView: View {
 
                         Picker("Sound", selection: Binding(
                             get: {
-                                audioModel.widgetSettings[widget]?.selectedSoundName ?? "Timpani 1"
+                                audioModel.widgetSettings[widget]?.selectedSoundName ?? "Bells"
                             },
                             set: { newValue in
                                 audioModel.widgetSettings[widget]?.selectedSoundName = newValue

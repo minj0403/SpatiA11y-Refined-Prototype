@@ -18,7 +18,7 @@ final class AudioViewModel: ObservableObject {
     let ttsCoordinator = TTSCoordinator()
 
     private let speechSynth = AVSpeechSynthesizer()
-    private let maxWidgets = 10
+    private let maxWidgets = 8
 
     init() {
         ttsCoordinator.onSpeechStateChanged = { [weak self] speaking in
@@ -87,20 +87,39 @@ final class AudioViewModel: ObservableObject {
 
     func speakWidgetName(id: UUID) {
         guard let widget = authoredWidgets.first(where: { $0.id == id }) else { return }
+        speakAnnouncement(widget.name)
+    }
 
+    func announceWidgetCreatedNeedsName() {
+        speakAnnouncement("Widget created. Name it.")
+    }
+
+    func announceWidgetReadyForPlacement(name: String) {
+        speakAnnouncement("\(name) created. Drag your finger to place it anywhere.")
+    }
+
+    func announceWidgetPlaced(name: String) {
+        speakAnnouncement("\(name) placed.")
+    }
+
+    func announceWidgetReadyToMove(name: String) {
+        speakAnnouncement("\(name) selected. Drag your finger to move it anywhere.")
+    }
+
+    private func speakAnnouncement(_ text: String) {
         let session = AVAudioSession.sharedInstance()
         do {
             try session.setCategory(
                 .playback,
                 mode: .spokenAudio,
-                options: [.mixWithOthers, .defaultToSpeaker]
+                options: [.mixWithOthers]
             )
             try session.setActive(true)
         } catch {
             print("speakWidgetName: audio session error \(error)")
         }
 
-        let utterance = AVSpeechUtterance(string: widget.name)
+        let utterance = AVSpeechUtterance(string: text)
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.9
         utterance.volume = 1
 

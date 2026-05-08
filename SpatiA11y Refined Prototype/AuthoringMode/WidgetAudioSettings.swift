@@ -8,6 +8,6 @@ struct WidgetAudioSettings: Equatable {
     var spread: Float = 0.5
     var isEnabled: Bool = true
 
-    var selectedCategory: SoundCategory = .nature
-    var selectedSoundName: String = "Rain"
+    var selectedCategory: SoundCategory = .musical
+    var selectedSoundName: String = "Bells"
 }

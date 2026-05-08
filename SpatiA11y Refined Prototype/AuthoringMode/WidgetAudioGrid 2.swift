@@ -73,19 +73,20 @@ final class WidgetAudioGrid {
     private var dynamicEvents: [UUID: PHASESoundEvent] = [:]
     private var dynamicWidgets: [UUID: AuthoringWidget] = [:]
     private var latestCanvasSize: CGSize = .zero
+    private var lastHoveredDynamicWidgetID: UUID? = nil
     
     private var touchIsDown = false
 
     private struct RuntimeConfig {
         var isEnabled: Bool = true
-        var selectedSoundBaseName: String
+        var selectedSoundFileName: String
         var volume: Float = 1.0
     }
 
     private var runtimeConfig: [WidgetID: RuntimeConfig] = Dictionary(
         uniqueKeysWithValues: WidgetID.allCases.map { widget in
-            let baseName = widget.defaultSoundOption.fileName.replacingOccurrences(of: ".wav", with: "")
-            return (widget, RuntimeConfig(selectedSoundBaseName: baseName))
+            let fileName = widget.defaultSoundOption.fileName
+            return (widget, RuntimeConfig(selectedSoundFileName: fileName))
         }
     )
 
@@ -113,9 +114,9 @@ final class WidgetAudioGrid {
             sources[widget] = src
             setTransform(src, position: room.center)
 
-            let baseName = runtimeConfig[widget]?.selectedSoundBaseName
-                ?? widget.defaultSoundOption.fileName.replacingOccurrences(of: ".wav", with: "")
-            try registerAssets(soundName: baseName, for: widget)
+            let fileName = runtimeConfig[widget]?.selectedSoundFileName
+                ?? widget.defaultSoundOption.fileName
+            try registerAssets(soundFileName: fileName, for: widget)
         }
 
         setTransform(listener, position: room.center)
@@ -178,6 +179,7 @@ final class WidgetAudioGrid {
     func fingerDown() {
         guard !touchIsDown else { return }
         touchIsDown = true
+        lastHoveredDynamicWidgetID = nil
         print("fingerDown")
 
         for widget in WidgetID.allCases {
@@ -193,6 +195,7 @@ final class WidgetAudioGrid {
     func fingerUp() {
         guard touchIsDown else { return }
         touchIsDown = false
+        lastHoveredDynamicWidgetID = nil
         print("fingerUp")
 
         for (_, evt) in events {
@@ -245,8 +248,9 @@ final class WidgetAudioGrid {
 
     // MARK: - Asset Registration
 
-    private func registerAssets(soundName: String, for widget: WidgetID) throws {
-        try registerBundledSoundAsset(name: soundName, ext: "wav", assetID: assetID(for: widget))
+    private func registerAssets(soundFileName: String, for widget: WidgetID) throws {
+        let (name, ext) = soundNameAndExtension(from: soundFileName)
+        try registerBundledSoundAsset(name: name, ext: ext, assetID: assetID(for: widget))
         try registerLoopingSoundEvent(
             eventID: eventID(for: widget),
             soundAssetID: assetID(for: widget),
@@ -263,19 +267,52 @@ final class WidgetAudioGrid {
     }
 
     private func registerBundledSoundAsset(name: String, ext: String, assetID: String) throws {
-        guard let url = Bundle.main.url(forResource: name, withExtension: ext) else {
+        guard let url = bundledSoundURL(name: name, ext: ext) else {
             throw NSError(domain: "WidgetAudioGrid", code: 1,
                           userInfo: [NSLocalizedDescriptionKey: "Missing \(name).\(ext)"])
         }
 
-        let monoLayout = AVAudioChannelLayout(layoutTag: kAudioChannelLayoutTag_Mono)!
+        let file = try AVAudioFile(forReading: url)
+        let channelCount = Int(file.processingFormat.channelCount)
+        let layoutTag: AudioChannelLayoutTag = (channelCount == 1)
+            ? kAudioChannelLayoutTag_Mono
+            : kAudioChannelLayoutTag_Stereo
+        guard let channelLayout = AVAudioChannelLayout(layoutTag: layoutTag) else {
+            throw NSError(
+                domain: "WidgetAudioGrid",
+                code: 3,
+                userInfo: [NSLocalizedDescriptionKey: "Unable to create channel layout for \(name).\(ext)"]
+            )
+        }
+
         _ = try engine.assetRegistry.registerSoundAsset(
             url: url,
             identifier: assetID,
             assetType: .streamed,
-            channelLayout: monoLayout,
+            channelLayout: channelLayout,
             normalizationMode: .none
         )
+    }
+
+    private func bundledSoundURL(name: String, ext: String) -> URL? {
+        if let direct = Bundle.main.url(forResource: name, withExtension: ext) {
+            return direct
+        }
+
+        // Support assets packaged in grouped subfolders.
+        if let inAudioFiles = Bundle.main.url(forResource: name, withExtension: ext, subdirectory: "Audio Files") {
+            return inAudioFiles
+        }
+
+        if let inAuthoringAudioFiles = Bundle.main.url(
+            forResource: name,
+            withExtension: ext,
+            subdirectory: "AuthoringMode/Audio Files"
+        ) {
+            return inAuthoringAudioFiles
+        }
+
+        return nil
     }
 
     private func registerLoopingSoundEvent(eventID: String,
@@ -327,10 +364,10 @@ final class WidgetAudioGrid {
 
     func setWidgetSound(_ widget: WidgetID, soundName: String) {
         guard var config = runtimeConfig[widget] else { return }
-        let newBaseName = fileBaseName(from: soundName)
-        guard config.selectedSoundBaseName != newBaseName else { return }
+        let newFileName = fileName(from: soundName)
+        guard config.selectedSoundFileName != newFileName else { return }
 
-        config.selectedSoundBaseName = newBaseName
+        config.selectedSoundFileName = newFileName
         runtimeConfig[widget] = config
 
         events[widget]?.stopAndInvalidate()
@@ -338,7 +375,7 @@ final class WidgetAudioGrid {
 
         unregisterAssets(for: widget) {
             do {
-                try self.registerAssets(soundName: newBaseName, for: widget)
+                try self.registerAssets(soundFileName: newFileName, for: widget)
                 if self.explorationTouchIsDown && config.isEnabled {
                     self.spawnAndStart(widget)
                 }
@@ -368,6 +405,7 @@ final class WidgetAudioGrid {
         let pos = worldPosition(from: p, in: size)
         setTransform(listener, position: pos)
         listenerPosWorld = pos
+        announceHoveredDynamicWidgetIfNeeded()
     }
 
     func updateListenerOrientation(yaw: Float, pitch: Float, roll: Float) {
@@ -435,11 +473,11 @@ final class WidgetAudioGrid {
     }
 
     private func registerDynamicAssets(for widget: AuthoringWidget) throws {
-        let baseName = widget.sound.fileName.replacingOccurrences(of: ".wav", with: "")
+        let (name, ext) = soundNameAndExtension(from: widget.sound.fileName)
 
         try registerBundledSoundAsset(
-            name: baseName,
-            ext: "wav",
+            name: name,
+            ext: ext,
             assetID: dynamicAssetID(for: widget.id)
         )
 
@@ -529,10 +567,51 @@ final class WidgetAudioGrid {
         return best
     }
 
-    private func fileBaseName(from displayName: String) -> String {
-        if let option = AudioAssetLibrary.allSounds.first(where: { $0.displayName == displayName }) {
-            return option.fileName.replacingOccurrences(of: ".wav", with: "")
+    private func nearestDynamicWidgetInsideActivationZone() -> AuthoringWidget? {
+        var best: AuthoringWidget?
+        var bestDist = Float.greatestFiniteMagnitude
+
+        for widget in dynamicWidgets.values {
+            let widgetPos = worldPositionFromScreenPoint(widget.position, canvasSize: latestCanvasSize)
+            let d = simd_distance(listenerPosWorld, widgetPos)
+            if d <= activationRadius && d < bestDist {
+                bestDist = d
+                best = widget
+            }
         }
-        return displayName.lowercased().replacingOccurrences(of: " ", with: "")
+
+        return best
+    }
+
+    private func announceHoveredDynamicWidgetIfNeeded() {
+        guard touchIsDown else { return }
+
+        let nearestWidget = nearestDynamicWidgetInsideActivationZone()
+        let nearestID = nearestWidget?.id
+
+        // Only announce on change to avoid repetitive speech while hovering.
+        guard nearestID != lastHoveredDynamicWidgetID else { return }
+        lastHoveredDynamicWidgetID = nearestID
+
+        guard let nearestWidget else { return }
+
+        let utterance = AVSpeechUtterance(string: nearestWidget.name)
+        utterance.rate = 0.5
+        speechSynth.stopSpeaking(at: .immediate)
+        speechSynth.speak(utterance)
+    }
+
+    private func fileName(from displayName: String) -> String {
+        if let option = AudioAssetLibrary.allSounds.first(where: { $0.displayName == displayName }) {
+            return option.fileName
+        }
+        return displayName.lowercased().replacingOccurrences(of: " ", with: "") + ".wav"
+    }
+
+    private func soundNameAndExtension(from fileName: String) -> (name: String, ext: String) {
+        let url = URL(fileURLWithPath: fileName)
+        let ext = url.pathExtension.isEmpty ? "wav" : url.pathExtension
+        let name = url.deletingPathExtension().lastPathComponent
+        return (name, ext)
     }
 }

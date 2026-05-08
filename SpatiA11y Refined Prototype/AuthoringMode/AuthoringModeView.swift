@@ -9,6 +9,8 @@ struct AuthoringModeView: View {
 
     @State private var namingWidgetID: UUID?
     @State private var draftName = ""
+    @State private var pendingPlacementWidgetID: UUID?
+    @State private var pendingMoveWidgetID: UUID?
 
     private let widgetDiameter: CGFloat = 64
     private let tapMoveThreshold: CGFloat = 12
@@ -26,39 +28,22 @@ struct AuthoringModeView: View {
                             TapGesture(count: 2)
                                 .onEnded {
                                     audioModel.selectWidget(id: widget.id)
-                                    audioModel.speakWidgetName(id: widget.id)
-                                }
-                        )
-                        .gesture(
-                            DragGesture(minimumDistance: tapMoveThreshold)
-                                .onChanged { value in
-                                    if draggedWidgetID == nil {
-                                        draggedWidgetID = widget.id
+                                    pendingMoveWidgetID = widget.id
+                                    if let selected = audioModel.authoredWidgets.first(where: { $0.id == widget.id }) {
+                                        audioModel.announceWidgetReadyToMove(name: selected.name)
+                                    } else {
+                                        audioModel.speakWidgetName(id: widget.id)
                                     }
-
-                                    audioModel.selectWidget(id: widget.id)
-                                    audioModel.moveWidget(
-                                        id: widget.id,
-                                        to: value.location,
-                                        canvasSize: geo.size
-                                    )
-
-                                    PHASEManager.shared.fingerDown()
-                                    PHASEManager.shared.updateFinger(value.location, in: geo.size)
-                                }
-                                .onEnded { _ in
-                                    draggedWidgetID = nil
-                                    PHASEManager.shared.fingerUp()
                                 }
                         )
                 }
 
                 VStack {
-                    Text("Authoring Mode")
+                    Text("Spatial mode")
                         .font(.title2)
                         .bold()
 
-                    Text("Single tap empty space to create. Double tap a widget to select it and hear its name.")
+                    Text("Single tap empty space to create a new widget. Double tap a widget to reposition it.")
                         .font(.caption)
                         .multilineTextAlignment(.center)
                         .foregroundStyle(.secondary)
@@ -66,7 +51,23 @@ struct AuthoringModeView: View {
 
                     Spacer()
 
-                    Text("\(audioModel.authoredWidgets.count)/10 widgets")
+                    if pendingPlacementWidgetID != nil {
+                        Text("Placement mode: drag your finger to place the newly named widget.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                    }
+                    
+                    if pendingMoveWidgetID != nil {
+                        Text("Move mode: drag your finger to reposition the selected widget.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                    }
+
+                    Text("\(audioModel.authoredWidgets.count)/8 widgets")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.bottom)
@@ -78,6 +79,24 @@ struct AuthoringModeView: View {
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
+                        if let pendingID = pendingPlacementWidgetID {
+                            audioModel.moveWidget(
+                                id: pendingID,
+                                to: value.location,
+                                canvasSize: geo.size
+                            )
+                            return
+                        }
+                        
+                        if let pendingID = pendingMoveWidgetID {
+                            audioModel.moveWidget(
+                                id: pendingID,
+                                to: value.location,
+                                canvasSize: geo.size
+                            )
+                            return
+                        }
+
                         touchStart = value.startLocation
                         currentTouch = value.location
 
@@ -85,6 +104,32 @@ struct AuthoringModeView: View {
                         PHASEManager.shared.updateFinger(value.location, in: geo.size)
                     }
                     .onEnded { value in
+                        if let pendingID = pendingPlacementWidgetID {
+                            audioModel.moveWidget(
+                                id: pendingID,
+                                to: value.location,
+                                canvasSize: geo.size
+                            )
+                            if let placedWidget = audioModel.authoredWidgets.first(where: { $0.id == pendingID }) {
+                                audioModel.announceWidgetPlaced(name: placedWidget.name)
+                            }
+                            pendingPlacementWidgetID = nil
+                            return
+                        }
+                        
+                        if let pendingID = pendingMoveWidgetID {
+                            audioModel.moveWidget(
+                                id: pendingID,
+                                to: value.location,
+                                canvasSize: geo.size
+                            )
+                            if let movedWidget = audioModel.authoredWidgets.first(where: { $0.id == pendingID }) {
+                                audioModel.announceWidgetPlaced(name: movedWidget.name)
+                            }
+                            pendingMoveWidgetID = nil
+                            return
+                        }
+
                         PHASEManager.shared.fingerUp()
 
                         let dx = value.location.x - value.startLocation.x
@@ -100,6 +145,7 @@ struct AuthoringModeView: View {
                             ) {
                                 namingWidgetID = newID
                                 draftName = ""
+                                audioModel.announceWidgetCreatedNeedsName()
                             }
                         }
                     }
@@ -117,12 +163,15 @@ struct AuthoringModeView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
-                    Button("Save") {
+                    Button("Submit") {
                         let finalName = draftName.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let resolvedName = finalName.isEmpty ? "Untitled Widget" : finalName
                         audioModel.renameWidget(
                             id: widgetID,
-                            name: finalName.isEmpty ? "Untitled Widget" : finalName
+                            name: resolvedName
                         )
+                        audioModel.announceWidgetReadyForPlacement(name: resolvedName)
+                        pendingPlacementWidgetID = widgetID
                         namingWidgetID = nil
                     }
                     .buttonStyle(.borderedProminent)

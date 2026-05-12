@@ -141,50 +141,77 @@ struct ControlConditionView: View {
 
     @ViewBuilder
     private func row(for entry: ControlEntry) -> some View {
-        Button {
-            if entry.kind == .folder {
+        let content = rowContent(for: entry)
+
+        if entry.kind == .folder {
+            Button {
                 store.openFolder(entry.id)
-            }
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: entry.kind == .folder ? "folder.fill" : "doc.fill")
-                    .foregroundStyle(entry.kind == .folder ? .blue : .secondary)
-                Text(entry.name)
-                    .lineLimit(2)
-                Spacer()
-                if entry.kind == .folder {
-                    Image(systemName: "chevron.right")
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .padding(.vertical, 4)
-        }
-        .buttonStyle(.plain)
-        .disabled(entry.kind == .item)
-        .swipeActions {
-            Button(role: .destructive) {
-                pendingDeleteEntry = entry
             } label: {
-                Label("Delete", systemImage: "trash")
+                content
             }
-        }
-        .contextMenu {
-            Button("Rename", systemImage: "pencil") {
-                pendingRenameEntry = entry
-                inputName = entry.name
+            .buttonStyle(.plain)
+            .accessibilityLabel(entry.name)
+            .accessibilityValue("Folder")
+            .accessibilityHint("Opens the folder.")
+            .accessibilityAddTraits(.isButton)
+            .swipeActions {
+                rowSwipeActions(for: entry)
             }
-            if store.canMove(entry) {
-                Button("Move", systemImage: "folder") {
-                    pendingMoveEntry = entry
+            .contextMenu {
+                rowContextMenu(for: entry)
+            }
+        } else {
+            content
+                .accessibilityLabel(entry.name)
+                .accessibilityValue("Item")
+                .accessibilityHint("Actions available: rename, move, and delete.")
+                .swipeActions {
+                    rowSwipeActions(for: entry)
                 }
-            }
-            Button("Delete", systemImage: "trash", role: .destructive) {
-                pendingDeleteEntry = entry
+                .contextMenu {
+                    rowContextMenu(for: entry)
+                }
+        }
+    }
+
+    private func rowContent(for entry: ControlEntry) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: entry.kind == .folder ? "folder.fill" : "doc.fill")
+                .foregroundStyle(entry.kind == .folder ? .blue : .secondary)
+            Text(entry.name)
+                .lineLimit(2)
+            Spacer()
+            if entry.kind == .folder {
+                Image(systemName: "chevron.right")
+                    .foregroundStyle(.secondary)
             }
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(entry.name), \(entry.kind.accessibilityType)")
-        .accessibilityHint(entry.kind == .folder ? "Opens folder. Actions available: rename, move, and delete." : "Actions available: rename, move, and delete.")
+        .padding(.vertical, 4)
+    }
+
+    @ViewBuilder
+    private func rowSwipeActions(for entry: ControlEntry) -> some View {
+        Button(role: .destructive) {
+            pendingDeleteEntry = entry
+        } label: {
+            Label("Delete", systemImage: "trash")
+        }
+    }
+
+    @ViewBuilder
+    private func rowContextMenu(for entry: ControlEntry) -> some View {
+        Button("Rename", systemImage: "pencil") {
+            pendingRenameEntry = entry
+            inputName = entry.name
+        }
+        if store.canMove(entry) {
+            Button("Move", systemImage: "folder") {
+                pendingMoveEntry = entry
+            }
+        }
+        Button("Delete", systemImage: "trash", role: .destructive) {
+            pendingDeleteEntry = entry
+        }
     }
 
     private var addTitle: String {

@@ -23,6 +23,10 @@ final class PHASEManager {
         widgetGrid?.addOrUpdateDynamicWidget(widget, canvasSize: canvasSize)
     }
 
+    func removeDynamicWidget(id: UUID) {
+        widgetGrid?.removeDynamicWidget(id: id)
+    }
+
     // MARK: - Authoring mode: silent widget placement
 
     func beginAuthoringWidget(_ widget: WidgetAudioGrid.WidgetID, at point: CGPoint, in size: CGSize) {

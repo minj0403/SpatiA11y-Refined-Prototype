@@ -19,6 +19,7 @@ final class AudioViewModel: ObservableObject {
 
     private let speechSynth = AVSpeechSynthesizer()
     private let maxWidgets = 8
+    private let widgetDiameter: CGFloat = 64
 
     init() {
         ttsCoordinator.onSpeechStateChanged = { [weak self] speaking in
@@ -40,13 +41,16 @@ final class AudioViewModel: ObservableObject {
     func createWidget(at position: CGPoint, canvasSize: CGSize) -> UUID? {
         guard authoredWidgets.count < maxWidgets else { return nil }
 
+        let clampedPosition = clamped(position, in: canvasSize)
+        guard canPlaceWidget(at: position, in: canvasSize, excludingID: nil) else { return nil }
+
         let soundIndex = authoredWidgets.count % AudioAssetLibrary.allSounds.count
         let sound = AudioAssetLibrary.allSounds[soundIndex]
 
         let widget = AuthoringWidget(
             id: UUID(),
             name: "Widget \(authoredWidgets.count + 1)",
-            position: clamped(position, in: canvasSize),
+            position: clampedPosition,
             sound: sound
         )
 
@@ -64,6 +68,16 @@ final class AudioViewModel: ObservableObject {
         PHASEManager.shared.addOrUpdateDynamicWidget(authoredWidgets[index], canvasSize: .zero)
     }
 
+    func cancelWidgetCreation(id: UUID) {
+        guard let index = authoredWidgets.firstIndex(where: { $0.id == id }) else { return }
+        authoredWidgets.remove(at: index)
+        if selectedWidgetID == id {
+            selectedWidgetID = nil
+        }
+        PHASEManager.shared.removeDynamicWidget(id: id)
+        announceWidgetCreationCancelled()
+    }
+
     func selectWidget(id: UUID) {
         selectedWidgetID = id
     }
@@ -72,9 +86,27 @@ final class AudioViewModel: ObservableObject {
         guard let index = authoredWidgets.firstIndex(where: { $0.id == id }) else { return }
 
         let newPosition = clamped(position, in: canvasSize)
+        guard canPlaceWidget(at: position, in: canvasSize, excludingID: id) else { return }
+
         authoredWidgets[index].position = newPosition
 
         PHASEManager.shared.addOrUpdateDynamicWidget(authoredWidgets[index], canvasSize: canvasSize)
+    }
+
+    func canPlaceWidget(
+        at position: CGPoint,
+        in canvasSize: CGSize,
+        excludingID: UUID? = nil
+    ) -> Bool {
+        let clampedPosition = clamped(position, in: canvasSize)
+
+        return !authoredWidgets.contains { widget in
+            if widget.id == excludingID { return false }
+
+            let dx = widget.position.x - clampedPosition.x
+            let dy = widget.position.y - clampedPosition.y
+            return sqrt(dx * dx + dy * dy) < widgetDiameter
+        }
     }
 
     func widget(at point: CGPoint, radius: CGFloat) -> AuthoringWidget? {
@@ -92,6 +124,10 @@ final class AudioViewModel: ObservableObject {
 
     func announceWidgetCreatedNeedsName() {
         speakAnnouncement("Widget created. Name it.")
+    }
+
+    func announceWidgetCreationCancelled() {
+        speakAnnouncement("Widget creation cancelled.")
     }
 
     func announceWidgetReadyForPlacement(name: String) {

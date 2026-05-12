@@ -138,15 +138,14 @@ struct AuthoringModeView: View {
 
                         guard distance < tapMoveThreshold else { return }
 
-                        if audioModel.widget(at: value.location, radius: widgetDiameter / 2) == nil {
-                            if let newID = audioModel.createWidget(
-                                at: value.location,
-                                canvasSize: geo.size
-                            ) {
-                                namingWidgetID = newID
-                                draftName = ""
-                                audioModel.announceWidgetCreatedNeedsName()
-                            }
+                        if audioModel.canPlaceWidget(at: value.location, in: geo.size),
+                           let newID = audioModel.createWidget(
+                            at: value.location,
+                            canvasSize: geo.size
+                           ) {
+                            namingWidgetID = newID
+                            draftName = ""
+                            audioModel.announceWidgetCreatedNeedsName()
                         }
                     }
             )
@@ -163,18 +162,26 @@ struct AuthoringModeView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
-                    Button("Submit") {
-                        let finalName = draftName.trimmingCharacters(in: .whitespacesAndNewlines)
-                        let resolvedName = finalName.isEmpty ? "Untitled Widget" : finalName
-                        audioModel.renameWidget(
-                            id: widgetID,
-                            name: resolvedName
-                        )
-                        audioModel.announceWidgetReadyForPlacement(name: resolvedName)
-                        pendingPlacementWidgetID = widgetID
-                        namingWidgetID = nil
+                    HStack(spacing: 16) {
+                        Button("Cancel", role: .cancel) {
+                            audioModel.cancelWidgetCreation(id: widgetID)
+                            namingWidgetID = nil
+                        }
+                        .buttonStyle(.bordered)
+
+                        Button("Submit") {
+                            let finalName = draftName.trimmingCharacters(in: .whitespacesAndNewlines)
+                            let resolvedName = finalName.isEmpty ? "Untitled Widget" : finalName
+                            audioModel.renameWidget(
+                                id: widgetID,
+                                name: resolvedName
+                            )
+                            audioModel.announceWidgetReadyForPlacement(name: resolvedName)
+                            pendingPlacementWidgetID = widgetID
+                            namingWidgetID = nil
+                        }
+                        .buttonStyle(.borderedProminent)
                     }
-                    .buttonStyle(.borderedProminent)
                 }
                 .padding()
             }

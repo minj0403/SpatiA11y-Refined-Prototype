@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MainContainerView: View {
     @StateObject private var audioModel = AudioViewModel()
+    @State private var spatialSessionTab: SpatialSessionTab = .authoring
 
     var body: some View {
         VStack(spacing: 0) {
@@ -11,7 +12,22 @@ struct MainContainerView: View {
             Group {
                 switch audioModel.selectedScreen {
                 case .authoring:
-                    AuthoringModeView(audioModel: audioModel)
+                    VStack(spacing: 0) {
+                        Picker("Spatial session", selection: $spatialSessionTab) {
+                            ForEach(SpatialSessionTab.allCases) { tab in
+                                Text(tab.rawValue).tag(tab)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .padding([.horizontal, .bottom])
+
+                        switch spatialSessionTab {
+                        case .authoring:
+                            AuthoringModeView(audioModel: audioModel)
+                        case .retrievalTesting:
+                            RetrievalTestingView(audioModel: audioModel)
+                        }
+                    }
                 case .controlCondition:
                     ControlConditionView(audioModel: audioModel)
                 }
@@ -20,6 +36,11 @@ struct MainContainerView: View {
         }
         .onAppear {
             audioModel.startSystems()
+        }
+        .onChange(of: audioModel.selectedScreen) { _, screen in
+            if screen != .authoring {
+                spatialSessionTab = .authoring
+            }
         }
     }
 }

@@ -117,7 +117,7 @@ struct RetrievalTestingView: View {
             .onDisappear {
                 endExplorationIfNeeded()
             }
-            .onChange(of: audioModel.authoredWidgets) { _, widgets in
+            .onChange(of: audioModel.authoredWidgets) { widgets in
                 if widgets.isEmpty {
                     resetSession()
                 } else if !hasPreparedSession {

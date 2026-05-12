@@ -66,6 +66,7 @@ final class WidgetAudioGrid {
 
     private let activationRadiusScreenFraction: CGFloat = 0.5
     private let widgetDiameterPoints: CGFloat = 64
+    private let activationReleaseMultiplier: Float = 1.15
     private let speechSynth = AVSpeechSynthesizer()
     private var explorationTouchIsDown = false
     private var masterGain: Float = 1.0
@@ -75,6 +76,7 @@ final class WidgetAudioGrid {
     private var dynamicWidgets: [UUID: AuthoringWidget] = [:]
     private var latestCanvasSize: CGSize = .zero
     private var lastHoveredDynamicWidgetID: UUID? = nil
+    private var excludedDynamicWidgetID: UUID?
     
     private var touchIsDown = false
 
@@ -189,6 +191,7 @@ final class WidgetAudioGrid {
         guard touchIsDown else { return }
         touchIsDown = false
         lastHoveredDynamicWidgetID = nil
+        speechSynth.stopSpeaking(at: .immediate)
         print("fingerUp")
 
         for (_, evt) in events {
@@ -200,6 +203,13 @@ final class WidgetAudioGrid {
             evt.stopAndInvalidate()
         }
         dynamicEvents.removeAll()
+    }
+
+    func setExcludedDynamicWidget(_ id: UUID?) {
+        excludedDynamicWidgetID = id
+        if touchIsDown {
+            syncPlaybackFromActivationZone()
+        }
     }
 
     private func stopAllEvents() {
@@ -599,7 +609,8 @@ final class WidgetAudioGrid {
             guard let pos = authoredPositions[widget] else { continue }
 
             let distance = simd_distance(listenerPosWorld, pos)
-            if distance <= activationRadius {
+            let isActive = events[widget] != nil
+            if isWithinActivationZone(distance: distance, radius: activationRadius, isActive: isActive) {
                 if events[widget] == nil {
                     spawnAndStart(widget)
                 }
@@ -610,10 +621,19 @@ final class WidgetAudioGrid {
         }
 
         for widget in dynamicWidgets.values {
+            if widget.id == excludedDynamicWidgetID {
+                if let event = dynamicEvents[widget.id] {
+                    event.stopAndInvalidate()
+                    dynamicEvents.removeValue(forKey: widget.id)
+                }
+                continue
+            }
+
             let widgetPos = worldPositionFromScreenPoint(widget.position, canvasSize: latestCanvasSize)
             let distance = simd_distance(listenerPosWorld, widgetPos)
+            let isActive = dynamicEvents[widget.id] != nil
 
-            if distance <= activationRadius {
+            if isWithinActivationZone(distance: distance, radius: activationRadius, isActive: isActive) {
                 if dynamicEvents[widget.id] == nil {
                     spawnAndStartDynamicWidget(widget)
                 }
@@ -623,7 +643,16 @@ final class WidgetAudioGrid {
             }
         }
 
-        announceHoveredDynamicWidgetIfNeeded()
+        if excludedDynamicWidgetID == nil {
+            announceHoveredDynamicWidgetIfNeeded()
+        }
+    }
+
+    private func isWithinActivationZone(distance: Float, radius: Float, isActive: Bool) -> Bool {
+        if isActive {
+            return distance <= radius * activationReleaseMultiplier
+        }
+        return distance <= radius
     }
 
     private func nearestWidgetInsideActivationZone() -> WidgetID? {

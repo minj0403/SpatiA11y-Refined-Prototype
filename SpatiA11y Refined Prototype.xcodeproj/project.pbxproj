@@ -272,6 +272,8 @@
 				DEVELOPMENT_TEAM = 3LM9WMJ9P8;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Used to dictate widget names in spatial mode.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Used to turn spoken widget names into widget labels.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -306,6 +308,8 @@
 				DEVELOPMENT_TEAM = 3LM9WMJ9P8;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Used to dictate widget names in spatial mode.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Used to turn spoken widget names into widget labels.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import Combine
 import AVFoundation
+import UIKit
 
 final class AudioViewModel: ObservableObject {
     @Published var selectedScreen: AppScreen = .authoring
@@ -75,7 +76,6 @@ final class AudioViewModel: ObservableObject {
             selectedWidgetID = nil
         }
         PHASEManager.shared.removeDynamicWidget(id: id)
-        announceWidgetCreationCancelled()
     }
 
     func selectWidget(id: UUID) {
@@ -143,6 +143,11 @@ final class AudioViewModel: ObservableObject {
     }
 
     private func speakAnnouncement(_ text: String) {
+        if UIAccessibility.isVoiceOverRunning {
+            UIAccessibility.post(notification: .announcement, argument: text)
+            return
+        }
+
         let session = AVAudioSession.sharedInstance()
         do {
             try session.setCategory(

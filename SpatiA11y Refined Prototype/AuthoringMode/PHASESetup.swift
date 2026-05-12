@@ -55,6 +55,10 @@ final class PHASEManager {
         widgetGrid?.fingerUp()
     }
 
+    func setExcludedDynamicWidget(_ id: UUID?) {
+        widgetGrid?.setExcludedDynamicWidget(id)
+    }
+
     func updateFinger(_ p: CGPoint, in size: CGSize) {
         widgetGrid?.updateListenerFromScreenPoint(p, in: size)
     }

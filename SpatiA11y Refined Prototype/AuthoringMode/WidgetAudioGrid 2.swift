@@ -414,34 +414,14 @@ final class WidgetAudioGrid {
     }
 
     func updateListenerOrientation(yaw: Float, pitch: Float, roll: Float) {
-        let dampedPitch = pitch * SpatialAudioTuning.headPitchInfluence
-        let dampedRoll = roll * 0.35
+        _ = pitch
+        _ = roll
 
-        let cy = cos(yaw), sy = sin(yaw)
-        let cp = cos(dampedPitch), sp = sin(dampedPitch)
-        let cr = cos(dampedRoll), sr = sin(dampedRoll)
-
-        let rotY = float4x4(
-            SIMD4<Float>(cy, 0, sy, 0),
-            SIMD4<Float>(0, 1, 0, 0),
-            SIMD4<Float>(-sy, 0, cy, 0),
-            SIMD4<Float>(0, 0, 0, 1)
-        )
-        let rotX = float4x4(
-            SIMD4<Float>(1, 0, 0, 0),
-            SIMD4<Float>(0, cp, -sp, 0),
-            SIMD4<Float>(0, sp, cp, 0),
-            SIMD4<Float>(0, 0, 0, 1)
-        )
-        let rotZ = float4x4(
-            SIMD4<Float>(cr, -sr, 0, 0),
-            SIMD4<Float>(sr, cr, 0, 0),
-            SIMD4<Float>(0, 0, 1, 0),
-            SIMD4<Float>(0, 0, 0, 1)
-        )
-
-        var t = simd_mul(simd_mul(rotY, rotX), rotZ)
+        var t = matrix_identity_float4x4
         t.columns.3 = SIMD4<Float>(listenerPosWorld.x, listenerPosWorld.y, listenerPosWorld.z, 1)
+        let c = cos(yaw), s = sin(yaw)
+        t.columns.0 = SIMD4<Float>(c, 0, s, 0)
+        t.columns.2 = SIMD4<Float>(-s, 0, c, 0)
         listener.transform = t
     }
 

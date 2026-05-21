@@ -7,17 +7,17 @@ enum SpatialAudioTuning {
     /// Screen left–right → world X (meters along width).
     static let horizontalSpreadScale: Float = 1.45
 
-    /// Screen top–bottom → world Z (depth / front–back). Larger = stronger in-front vs behind.
-    static let depthSpreadScale: Float = 1.9
+    /// Screen top–bottom → world Z (depth). Keep close to horizontal so L/R stays primary.
+    static let depthSpreadScale: Float = 1.5
 
-    /// When true, top of screen (lower ny) maps toward listener forward (+Z in neutral head pose).
+    /// When true, top of screen maps toward listener forward (+Z at neutral yaw).
     static let screenTopIsForward: Bool = true
 
-    /// Slight source height from depth so front/back items are not coplanar at the ears.
-    static let sourceElevationFromDepth: Float = 0.14
+    /// Extra source height from depth (0 = coplanar table; elevation can weaken L/R cues).
+    static let sourceElevationFromDepth: Float = 0
 
-    /// How much headphone pitch tilts the spatial listener (0 = yaw only).
-    static let headPitchInfluence: Float = 0.7
+    /// Headphone pitch on listener (0 = yaw only, which preserves left–right).
+    static let headPitchInfluence: Float = 0
 
     /// Usable half-extent of the virtual table (meters), before spread scale.
     static let roomWidth: Float = 10.0

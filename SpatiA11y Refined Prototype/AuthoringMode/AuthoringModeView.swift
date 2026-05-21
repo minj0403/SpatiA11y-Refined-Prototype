@@ -129,7 +129,7 @@ struct AuthoringModeView: View {
         guard !hasSpokenOrientation else { return }
         hasSpokenOrientation = true
         speechGuide.speak(
-            "Spatial mode. Drag to hear nearby widgets. Top of the screen is in front, bottom is behind. On a widget, you will hear its name. Tap empty space to create a widget. Double tap a widget to move it. Eight widgets maximum."
+            "Spatial mode. Drag to hear nearby widgets. On a widget, you will hear its name. Tap empty space to create a widget. Double tap a widget to move it. Eight widgets maximum."
         )
     }
 

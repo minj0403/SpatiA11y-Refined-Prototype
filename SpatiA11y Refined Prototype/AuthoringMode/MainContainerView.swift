@@ -37,6 +37,9 @@ struct MainContainerView: View {
         .onAppear {
             audioModel.startSystems()
         }
+        .onDisappear {
+            audioModel.stopHeadTracking()
+        }
         .onChange(of: audioModel.selectedScreen) { screen in
             if screen != .authoring {
                 spatialSessionTab = .authoring

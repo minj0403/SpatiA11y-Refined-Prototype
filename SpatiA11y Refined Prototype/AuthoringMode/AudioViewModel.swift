@@ -33,6 +33,15 @@ final class AudioViewModel: ObservableObject {
     func startSystems() {
         spatialAudioManager.setupIfNeeded()
         applyAllSettings()
+        syncHeadTracking()
+    }
+
+    func syncHeadTracking() {
+        if globalSettings.headTrackingEnabled {
+            startHeadTracking()
+        } else {
+            stopHeadTracking()
+        }
     }
 
     func applyAllSettings() {

@@ -12,11 +12,7 @@ struct GlobalControlSection: View {
                 get: { audioModel.globalSettings.headTrackingEnabled },
                 set: {
                     audioModel.globalSettings.headTrackingEnabled = $0
-                    if $0 {
-                        audioModel.startHeadTracking()
-                    } else {
-                        audioModel.stopHeadTracking()
-                    }
+                    audioModel.syncHeadTracking()
                 }
             ))
 

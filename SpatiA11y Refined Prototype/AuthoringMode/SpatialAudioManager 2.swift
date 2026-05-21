@@ -41,6 +41,7 @@ final class SpatialAudioManager {
     
     func applyDynamicWidgets(_ widgets: [AuthoringWidget], global: GlobalAudioSettings) {
         PHASEManager.shared.setRoomReverb(global.roomReverb)
+        PHASEManager.shared.setMasterWidgetGain(global.masterVolume)
 
         for widget in widgets {
             PHASEManager.shared.addOrUpdateDynamicWidget(widget, canvasSize: .zero)

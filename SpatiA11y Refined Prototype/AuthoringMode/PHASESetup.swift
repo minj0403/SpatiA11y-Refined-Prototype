@@ -92,10 +92,10 @@ final class PHASEManager {
         listener.transform = t
 
         let room = WidgetAudioGrid.Room(
-            width: 8.0,
-            depth: 8.0,
+            width: SpatialAudioTuning.roomWidth,
+            depth: SpatialAudioTuning.roomDepth,
             center: SIMD3<Float>(0, 0, -2.0),
-            inset: 0.6,
+            inset: SpatialAudioTuning.roomInset,
             y: 0.0
         )
 

@@ -64,9 +64,7 @@ final class WidgetAudioGrid {
     private var authoredPositions: [WidgetID: SIMD3<Float>] = [:]
     private var listenerPosWorld: SIMD3<Float> = .zero
 
-    private let activationRadiusScreenFraction: CGFloat = 0.5
     private let widgetDiameterPoints: CGFloat = 64
-    private let activationReleaseMultiplier: Float = 1.15
     private let speechSynth = AVSpeechSynthesizer()
     private var explorationTouchIsDown = false
     private var masterGain: Float = 1.0
@@ -326,12 +324,12 @@ final class WidgetAudioGrid {
                           userInfo: [NSLocalizedDescriptionKey: "Failed to create PHASESpatialPipeline"])
         }
 
-        pipeline.entries[PHASESpatialCategory.earlyReflections]?.sendLevel = 0.06
-        pipeline.entries[.lateReverb]?.sendLevel = 0.05
+        pipeline.entries[PHASESpatialCategory.earlyReflections]?.sendLevel = SpatialAudioTuning.earlyReflectionsSend
+        pipeline.entries[.lateReverb]?.sendLevel = SpatialAudioTuning.lateReverbSend
 
         let mixer = PHASESpatialMixerDefinition(spatialPipeline: pipeline, identifier: mixerID)
         let distance = PHASEGeometricSpreadingDistanceModelParameters()
-        distance.rolloffFactor = 0.9
+        distance.rolloffFactor = SpatialAudioTuning.distanceRolloffFactor
         mixer.distanceModelParameters = distance
 
         let sampler = PHASESamplerNodeDefinition(
@@ -549,10 +547,7 @@ final class WidgetAudioGrid {
         let nx = Float((point.x / canvasSize.width) * 2 - 1)
         let ny = Float((point.y / canvasSize.height) * 2 - 1)
 
-        let x = room.center.x + nx * (room.width * 0.5 - room.inset)
-        let z = room.center.z + ny * (room.depth * 0.5 - room.inset)
-
-        return SIMD3<Float>(x, room.y, z)
+        return worldPositionFromNormalized(nx: nx, ny: ny)
     }
 
     // MARK: - Helpers
@@ -563,9 +558,14 @@ final class WidgetAudioGrid {
         let nx = Float((point.x / size.width) * 2 - 1)
         let ny = Float((point.y / size.height) * 2 - 1)
 
-        let x = room.center.x + nx * (room.width * 0.5 - room.inset)
-        let z = room.center.z + ny * (room.depth * 0.5 - room.inset)
+        return worldPositionFromNormalized(nx: nx, ny: ny)
+    }
 
+    private func worldPositionFromNormalized(nx: Float, ny: Float) -> SIMD3<Float> {
+        let halfW = (room.width * 0.5 - room.inset) * SpatialAudioTuning.worldSpreadScale
+        let halfD = (room.depth * 0.5 - room.inset) * SpatialAudioTuning.worldSpreadScale
+        let x = room.center.x + nx * halfW
+        let z = room.center.z + ny * halfD
         return SIMD3<Float>(x, room.y, z)
     }
 
@@ -573,7 +573,7 @@ final class WidgetAudioGrid {
         guard canvasSize.width > 0, canvasSize.height > 0 else { return 0.75 }
 
         let center = CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)
-        let screenExtent = min(canvasSize.width, canvasSize.height) * activationRadiusScreenFraction
+        let screenExtent = min(canvasSize.width, canvasSize.height) * SpatialAudioTuning.activationRadiusScreenFraction
         let offset = CGPoint(x: center.x + screenExtent, y: center.y)
         let centerWorld = worldPosition(from: center, in: canvasSize)
         let offsetWorld = worldPosition(from: offset, in: canvasSize)
@@ -643,14 +643,42 @@ final class WidgetAudioGrid {
             }
         }
 
+        updateActiveSourceGains(activationRadius: activationRadius)
+
         if excludedDynamicWidgetID == nil {
             announceHoveredDynamicWidgetIfNeeded()
         }
     }
 
+    private func proximityGain(distance: Float, radius: Float) -> Float {
+        guard radius > 0 else { return 1 }
+        let t = min(max(distance / radius, 0), 1)
+        let curve = (1 - t) * (1 - t)
+        return SpatialAudioTuning.proximityGainFloor + (1 - SpatialAudioTuning.proximityGainFloor) * curve
+    }
+
+    private func updateActiveSourceGains(activationRadius: Float) {
+        for widget in WidgetID.allCases {
+            guard let source = sources[widget], events[widget] != nil else { continue }
+            guard let pos = authoredPositions[widget] else { continue }
+            let distance = simd_distance(listenerPosWorld, pos)
+            let widgetVolume = runtimeConfig[widget]?.volume ?? 1.0
+            let gain = widgetVolume * masterGain * proximityGain(distance: distance, radius: activationRadius)
+            source.gain = Double(gain)
+        }
+
+        for widget in dynamicWidgets.values {
+            guard let source = dynamicSources[widget.id], dynamicEvents[widget.id] != nil else { continue }
+            let pos = worldPositionFromScreenPoint(widget.position, canvasSize: latestCanvasSize)
+            let distance = simd_distance(listenerPosWorld, pos)
+            let gain = masterGain * proximityGain(distance: distance, radius: activationRadius)
+            source.gain = Double(gain)
+        }
+    }
+
     private func isWithinActivationZone(distance: Float, radius: Float, isActive: Bool) -> Bool {
         if isActive {
-            return distance <= radius * activationReleaseMultiplier
+            return distance <= radius * SpatialAudioTuning.activationReleaseMultiplier
         }
         return distance <= radius
     }

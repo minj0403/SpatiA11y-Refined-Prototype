@@ -18,11 +18,11 @@ enum SpatialAudioTuning {
     static let activationReleaseMultiplier: Float = 1.06
 
     /// PHASE geometric spreading rolloff (higher = quieter at distance).
-    static let distanceRolloffFactor: Float = 1.85
+    static let distanceRolloffFactor: Double = 1.85
 
     /// Minimum gain at the edge of the activation zone.
     static let proximityGainFloor: Float = 0.06
 
-    static let earlyReflectionsSend: Float = 0.04
-    static let lateReverbSend: Float = 0.03
+    static let earlyReflectionsSend: Double = 0.04
+    static let lateReverbSend: Double = 0.03
 }
